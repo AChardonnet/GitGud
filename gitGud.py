@@ -1,5 +1,6 @@
 import os
 import hashlib
+import zlib
 
 
 def init(repository):
@@ -34,5 +35,5 @@ def hashObject(data, objectType, write=True):
         path = os.path.join(".gitGud", "objects", hash[:2], hash[2:])
         if not os.path.exists(path):
             os.makedirs(os.path.dirname(path), exist_ok=True)
-            writeFile(path, data)
+            writeFile(path, zlib.compress(data))
     return hash
