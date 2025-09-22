@@ -11,7 +11,7 @@ Le header contient le type de l'objet et la longueur des données.
 
 Un "blob" représente un fichier.
 
-```path = ab/cd4815...
+```python
 blob {content length}{NUL byte}{data}
 ```
 
@@ -19,7 +19,7 @@ blob {content length}{NUL byte}{data}
 
 Un "tree" représente un dossier, il peut contenir d'autres objets "tree"
 
-```path = ab/cd4815...
+```python
 tree {content length}{NUL byte}{mode} {path}{NUL byte}{hash}
 {mode} {path}{NUL byte}{hash}
 {mode} {path}{NUL byte}{hash}
@@ -30,7 +30,7 @@ tree {content length}{NUL byte}{mode} {path}{NUL byte}{hash}
 
 Un "changeset" représente un commit
 
-```path = ab/cd4815...
+```python
 changeset {content length}{NUL byte}tree {hash}
 parent {hash}
 author Jean Loutre jean.loutre@centrale-med.fr
