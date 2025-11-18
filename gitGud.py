@@ -46,16 +46,18 @@ def hashObject(data, objectType, write=True):
     return hash
 
 
-def findObject(hash):
+def findObject(hashBegin):
     """
-    Find an object from it's SHA-1 hash and returns it's path.
+    Find an object from it's SHA-1 hash beginning and returns it's path.
     Raise ValueError if not found.
     """
-    objectDirectory = os.path.join(".gitGud", "objects", hash[:2])
-    objectName = hash[2:]
+    if len(hashBegin) < 2:
+        raise ValueError("At least the first 2 characters should be provided.")
+    objectDirectory = os.path.join(".gitGud", "objects", hashBegin[:2])
+    objectName = hashBegin[2:]
     objects = []
     for object in os.listdir(objectDirectory):
-        if object == objectName:
+        if object.startswith(objectName):
             objects.append(object)
     if len(objects) == 0:
         raise ValueError(f"Object not found")
@@ -64,12 +66,12 @@ def findObject(hash):
     return os.path.join(objectDirectory, objects[0])
 
 
-def readObject(hash):
+def readObject(hashBegin):
     """
     Finds then reads an object from it's SHA-1 hash and returns it's content as a tuple : (objectType, data).
     Raise ValueError if not found.
     """
-    path = findObject(hash)
+    path = findObject(hashBegin)
     objectContent = zlib.decompress(readFile(path))
     firstNulByteIndex = objectContent.index(b"\x00")
     header = objectContent[:firstNulByteIndex]
@@ -264,5 +266,5 @@ def commit(message, author):
     hash = hashObject(data, "commit")
     newMasterPath = os.path.join(".gitGud", "refs", "heads", "master")
     writeFile(newMasterPath, (hash + "\n").encode())
-    print(f"commited to master: {hash:7}")
+    print(f"commited to master: {hash :.7}")
     return hash
