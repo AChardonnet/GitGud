@@ -5,6 +5,8 @@ import collections
 import struct
 import operator
 import time
+import sys
+import stat
 
 
 def init(repository):
@@ -268,3 +270,65 @@ def commit(message, author):
     writeFile(newMasterPath, (hash + "\n").encode())
     print(f"commited to master: {hash :.7}")
     return hash
+
+
+def catFile(mode, hashBegin):
+    """
+    Prints contents or info about an object with an hash begining.
+    If mode is 'commit', 'tree', or 'blob', print the raw data bytes of the object.
+    If mode is 'size', print the size of the object.
+    If mode is 'type', print the type of the object.
+    If mode is 'pretty', print a prettified version of the object.
+    """
+    objectType, data = readObject(hashBegin)
+    if mode in ["commit", "tree", "blob"]:
+        if mode != objectType:
+            raise ValueError(f"Wrong object type. Expected {objectType}, got {mode}")
+        sys.stdout.buffer.write(data)
+    elif mode == "size":
+        print(len(data))
+    elif mode == "type":
+        print(objectType)
+    elif mode == "pretty":
+        if objectType in ["commit", "blob"]:
+            sys.stdout.buffer.write(data)
+        elif objectType == "tree":
+            for mode, path, hash in readTree(data=data):
+                type = "tree" if stat.S_ISDIR(mode) else "blob"
+                print(f"{mode:06o} {type} {hash}\t{path}")
+        else:
+            assert False, "unhandled object type {!r}".format(objectType)
+    else:
+        raise ValueError("unexpected mode {!r}".format(mode))
+
+
+def readTree(hash=None, data=None):
+    if hash is not None:
+        objectType, data = readObject(hash)
+        assert objectType == "tree"
+    elif data is None:
+        raise ValueError("must specify hash or data")
+    entries = []
+    i = 0
+    atEnd = False
+    while not atEnd:
+        end = data.find(b"\x00", i)
+        if end == -1:
+            atEnd = True
+            break
+        mode, path = data[i:end].decode().split()
+        mode = int(mode, 8)
+        hash = data[end + 1 : end + 21]
+        entries.append((mode, path, hash.hex()))
+        i = end + 21
+    return entries
+
+
+def lsFiles(details=False):
+    """Print a list of the files in index (including mode, SHA-1, and stage number if "details" is True)."""
+    for entry in readIndex():
+        if details:
+            flags = (entry.flags >> 12) & 3
+            print(f"{entry.mode:6o} {entry.sha1.hex()} {flags}\t{entry.path}")
+        else:
+            print(entry.path)
