@@ -4,6 +4,7 @@ import zlib
 import collections
 import struct
 import operator
+import time
 
 
 def init(repository):
@@ -11,6 +12,9 @@ def init(repository):
     os.makedirs(repository, exist_ok=True)
     os.makedirs(os.path.join(repository, ".gitGud"))
     os.makedirs(os.path.join(repository, ".gitGud", "objects"))
+    os.makedirs(os.path.join(repository, ".gitGud", "refs"))
+    os.makedirs(os.path.join(repository, ".gitGud", "refs", "heads"))
+    writeFile(os.path.join(repository, ".gitGud", "HEAD"), b"ref: refs/heads/master")
     print(f"Initialized empty gitGud repository in {repository}")
 
 
@@ -223,3 +227,42 @@ def writeTree():
         treeEntry = modeAndPath + b"\x00" + entry.sha1
         treeEntries.append(treeEntry)
     return hashObject(b"".join(treeEntries), "tree")
+
+
+def getLocalMasterHash():
+    """
+    Get the current commit hash of local master branch.
+    """
+    path = os.path.join(".gitGud", "refs", "heads", "master")
+    try:
+        return readFile(path).decode().strip()
+    except FileNotFoundError:
+        return None
+
+
+def commit(message, author):
+    """
+    Commit the current index to master with the message.
+    Return the hash of the commit.
+    """
+    tree = writeTree()
+    parent = getLocalMasterHash()
+    if author is None:
+        author = f"{os.environ['GIT_AUTHOR_NAME']} <{os.environ['GIT_AUTHOR_EMAIL']}>"
+    timestamp = int(time.mktime(time.localtime()))
+    utc = -time.timezone
+    authorTime = f"{timestamp} {'+' if utc > 0 else '-'}{abs(utc) // 3600:02}{(abs(utc) // 60) % 60:02}"
+    lines = ["tree " + tree]
+    if parent:
+        lines.append("parent " + parent)
+    lines.append(f"author {author} {authorTime}")
+    lines.append(f"committer {author} {authorTime}")
+    lines.append("")
+    lines.append(message)
+    lines.append("")
+    data = "\n".join(lines).encode()
+    hash = hashObject(data, "commit")
+    newMasterPath = os.path.join(".gitGud", "refs", "heads", "master")
+    writeFile(newMasterPath, (hash + "\n").encode())
+    print(f"commited to master: {hash:7}")
+    return hash
