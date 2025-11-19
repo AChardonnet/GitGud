@@ -7,6 +7,7 @@ import operator
 import time
 import sys
 import stat
+import difflib
 
 
 def init(repository):
@@ -112,20 +113,6 @@ def writeIndex(entries):
     """
     encodedEntries = []
     for entry in entries:
-        print(
-            entry.ctime_s,
-            entry.ctime_n,
-            entry.mtime_s,
-            entry.mtime_n,
-            entry.dev,
-            entry.ino,
-            entry.mode,
-            entry.uid,
-            entry.gid,
-            entry.size,
-            entry.sha1,
-            entry.flags,
-        )
         entryHead = struct.pack(
             "!LLLLLLLLLL20sH",
             entry.ctime_s,
@@ -213,7 +200,6 @@ def add(paths):
             flags,
             path,
         )
-        print(entry)
         entries.append(entry)
     entries.sort(key=operator.attrgetter("path"))
     writeIndex(entries)
@@ -225,7 +211,6 @@ def writeTree():
     """
     treeEntries = []
     for entry in readIndex():
-        print(entry)
         assert "/" not in entry.path, "Can't write an other root directory"
         modeAndPath = f"{entry.mode:o} {entry.path}".encode()
         treeEntry = modeAndPath + b"\x00" + entry.sha1
@@ -332,3 +317,66 @@ def lsFiles(details=False):
             print(f"{entry.mode:6o} {entry.sha1.hex()} {flags}\t{entry.path}")
         else:
             print(entry.path)
+
+
+def getStatus():
+    paths = set()
+    for root, directories, files in os.walk("."):
+        directories[:] = [
+            directory for directory in directories if directory != ".gitGud"
+        ]
+        for file in files:
+            path = os.path.join(root, file)
+            path = path.replace("\\", "/")
+            if path.startswith("./"):
+                path = path[2:]
+            paths.add(path)
+    entriesByPath = {entry.path: entry for entry in readIndex()}
+    enrtyPaths = set(entriesByPath)
+    changed = {
+        path
+        for path in (paths & enrtyPaths)
+        if hashObject(readFile(path), "blob", write=False)
+        != entriesByPath[path].sha1.hex()
+    }
+    new = paths - enrtyPaths
+    deleted = enrtyPaths - paths
+    return (sorted(changed), sorted(new), sorted(deleted))
+
+
+def status():
+    changed, new, deleted = getStatus()
+    if changed:
+        print("changed files:")
+        for path in changed:
+            print("    " + path)
+    if new:
+        print("new files:")
+        for path in new:
+            print("    " + path)
+    if deleted:
+        print("deleted files:")
+        for path in deleted:
+            print("    " + path)
+
+
+def diff():
+    changed, _, _ = getStatus()
+    entriesByPath = {entry.path: entry for entry in readIndex()}
+    for i, path in enumerate(changed):
+        hash = entriesByPath[path].sha1.hex()
+        objectType, data = readObject(hash)
+        assert objectType == "blob"
+        indexLines = data.decode().splitlines()
+        workingLines = readFile(path).decode().splitlines()
+        diffLines = difflib.unified_diff(
+            indexLines,
+            workingLines,
+            f"{path} (index)",
+            f"{path} (working copy)",
+            lineterm="",
+        )
+        for line in diffLines:
+            print(line)
+        if i < len(changed) - 1:
+            print("-" * 50)

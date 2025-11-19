@@ -39,7 +39,3 @@ commiter Jean Loutre jean.loutre@centrale-med.fr
 {commit message}
 
 ```
-
-### Current directory cache
-
-Stocke un état du dossier à un moment donné.
