@@ -60,3 +60,7 @@ L'index stocke aussi des métadonnées sur les fichiers traqués:
 - sha1 : le nom du blob qui représente le fichier
 - flags
 - path
+
+
+
+blablabla
